@@ -10,6 +10,8 @@ our @ISA = qw/Exporter/;
 our @EXPORT_OK = qw( scripts_in_code);
 our @EXPORT = @EXPORT_OK;
 
+our $VERSION = '2.0.98a';
+
 our @MANIFEST = (
 'clear.sh',
 'my.sandbox.cnf',

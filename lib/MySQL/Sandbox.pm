@@ -7,7 +7,7 @@ use Socket;
 # use base qw( Exporter);
 # our @ISA= qw(Exporter);
 
-our $VERSION='2.0.98';
+our $VERSION='2.0.98a';
 our $DEBUG;
 
 BEGIN {

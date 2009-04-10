@@ -10,7 +10,7 @@ our @ISA = qw/Exporter/;
 our @EXPORT_OK = qw( scripts_in_code);
 our @EXPORT = @EXPORT_OK;
 
-our $VERSION = '2.0.98d';
+our $VERSION="2.0.98i";
 
 our @MANIFEST = (
 'clear.sh',
@@ -58,7 +58,7 @@ my %parse_options_low_level_make_sandbox = (
                                 parse => 'd|sandbox_directory=s',      
                                 so    =>  20,
                                 help  => [
-                                            'Where to install the sandbox, under home-directory'
+                                            'Where to install the sandbox, under upper-directory'
                                          ] 
                              },
     sandbox_port          => {
@@ -340,6 +340,15 @@ my %parse_options_replication = (
                                          ] 
                             },
  
+    interactive           => {
+                                value => 0,                  
+                                parse => 'interactive',                  
+                                so    => 65,
+                                help  => [
+                                            'Use this option to ask interactive user ',
+                                            'confirmation for each node (default: disabled)'
+                                         ] 
+                            },
     verbose               => {
                                 value => 0,                  
                                 parse => 'v|verbose',                  
@@ -421,6 +430,16 @@ my %parse_options_many = (
                                             'set the nodes in circular replication'
                                          ] 
                             },
+
+    interactive           => {
+                                value => 0,                  
+                                parse => 'interactive',                  
+                                so    => 65,
+                                help  => [
+                                            'Use this option to ask interactive user ',
+                                            'confirmation for each node (default: disabled)'
+                                         ] 
+                            },
     verbose               => {
                                 value => 0,                  
                                 parse => 'v|verbose',                  
@@ -476,6 +495,15 @@ my %parse_options_custom_many = (
                                          ]
                             },
 
+    interactive           => {
+                                value => 0,                  
+                                parse => 'interactive',                  
+                                so    => 65,
+                                help  => [
+                                            'Use this option to ask interactive user ',
+                                            'confirmation for each node (default: disabled)'
+                                         ] 
+                            },
     verbose               => {
                                 value => 0,                  
                                 parse => 'v|verbose',                  
@@ -502,6 +530,9 @@ our %sbtool_supported_operations = (
     copy  => 'copies data from one Sandbox to another',
     move  => 'moves a Sandbox to a different location',
     port  => 'Changes a Sandbox port',
+    delete => 'removes a sandbox completely',
+    preserve => 'makes a sandbox permanent',
+    unpreserve => 'makes a sandbox NOT permanent',
 );
 
 our %sbtool_supported_formats = (
@@ -522,7 +553,7 @@ my %parse_options_sbtool = (
         so    => 20,
         parse => 's|source_dir=s',
         value => undef,
-        help  => 'source directory for move,copy',
+        help  => 'source directory for move, copy, delete',
     },
     dest_dir => {
         so    => 30,
@@ -551,7 +582,7 @@ my %parse_options_sbtool = (
     max_range => {
         so    => 70,
         parse => 'x|max_range=i',
-        value => 32000,
+        value => 64000,
         help  => 'maximum port when searching for available ranges',
     },
     range_size => {
@@ -578,6 +609,12 @@ my %parse_options_sbtool = (
         parse => 'a|all_info',
         value => 0,
         help  => 'print more info for "ports" operation'
+    },
+    master_node => {
+        so    => 115,
+        parse => 'master_node=i',
+        value => '1',
+        help  => 'which node should be master (default: 1)',
     },
     tree_nodes => {
         so    => 120,
@@ -636,7 +673,7 @@ then
 else
     CURDIR=`pwd`
     cd $BASEDIR
-    if [ "$DEBUG" = "" ]
+    if [ "$SBDEBUG" = "" ]
     then
         $MYSQLD_SAFE --defaults-file=$SBDIR/my.sandbox.cnf $@ > /dev/null 2>&1 &
     else
@@ -910,7 +947,7 @@ PERL_SCRIPT3='s/\b$old\b/$new/'
 PERL_SCRIPT="$PERL_SCRIPT1 $PERL_SCRIPT2 $PERL_SCRIPT3"
 
 SCRIPTS1="start stop send_kill clear restart my.sandbox.cnf "
-SCRIPTS2="load_grants my use current_options.conf $0"
+SCRIPTS2="load_grants my use $0"
 SCRIPTS="$SCRIPTS1 $SCRIPTS2"
 for SCRIPT in $SCRIPTS
 do
@@ -951,11 +988,11 @@ then
 fi
 
 PERL_SCRIPT1='BEGIN{$old=shift;$new=shift};'
-PERL_SCRIPT2='s/\b$old\b/$new/g' 
+PERL_SCRIPT2='s/$old/$new/g' 
 PERL_SCRIPT="$PERL_SCRIPT1 $PERL_SCRIPT2"
 
 SCRIPTS1="start stop send_kill clear restart my.sandbox.cnf "
-SCRIPTS2="load_grants my use current_options.conf $0"
+SCRIPTS2="load_grants my use $0"
 SCRIPTS="$SCRIPTS1 $SCRIPTS2"
 
 for SCRIPT in $SCRIPTS
@@ -1016,7 +1053,7 @@ SANDBOX_ACTION_SCRIPT
 
 my $license_text = <<'LICENSE';
 #    The MySQL Sandbox
-#    Copyright (C) 2006,2007,2008 Giuseppe Maxia, MySQL AB
+#    Copyright (C) 2006,2007,2008,2009 Giuseppe Maxia
 #    Contacts: http://datacharmer.org
 #
 #    This program is free software; you can redistribute it and/or modify

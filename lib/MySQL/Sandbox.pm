@@ -19,7 +19,7 @@ our @EXPORT_OK= qw( is_port_open
                     get_ranges
                     get_option_file_contents ) ;
 
-our $VERSION="2.0.99";
+our $VERSION="2.0.99b";
 our $DEBUG;
 
 BEGIN {
@@ -324,7 +324,7 @@ sub is_sandbox_running {
 }
 
 sub get_ranges {
-    my ($options) = @_;
+    my ($options, $silent ) = @_;
     my ( $ports, $all_info ) = get_sb_info(undef, $options);
     my $minimum_port = $options->{min_range};
     my $maximum_port = $options->{max_range};
@@ -351,7 +351,10 @@ sub get_ranges {
         }
         $range_found = 1;
     }
-    printf "%5d - %5d\n", $minimum_port , $minimum_port + $range_size;
+    unless ($silent) {
+        printf "%5d - %5d\n", $minimum_port , $minimum_port + $range_size;
+    }
+    return $minimum_port;
 }
 
 sub get_ports {
@@ -862,6 +865,45 @@ You can override this option by setting the TEST_VERSION environment variable.
   TEST_VERSION=$HOME/opt/mysql/5.1.30 make test
   TEST_VERSION=/path/to/myswl-tarball-5.1.30.tar.gz make test
 
+=head2 User defined tests
+
+Starting with version 2.0.99, you can define your own tests, and run them by
+
+  $ test_sandbox --tests=user --user_test=file_name
+
+Inside your test file, you can define test actions.
+There are two kind of tests: shell and sql the test type is defined by a keyword followed by a colon.
+
+The 'shell' test requires a 'command', which is passed to a shell.
+The 'expected' label is a string that you expect to find within the shell output.
+If you don't expect anything, you can just say "expected = OK", meaning that you will
+be satisfied with a ZERO exit code reported by the operating system.
+The 'msg' is the description of the test that is shown to you when the test runs.
+
+  shell:
+  command  = make_sandbox 5.1.30 --no_confirm
+  expected = sandbox server started
+  msg      = sandbox creation
+
+The 'sql' test requires a 'path', which is the place where the test engine expects to find a 'use' script.
+The 'query' is passed to the above mentioned script and the output is captured for further processing.
+The 'expected' parameter is a string that you want to find in the query output.
+The 'msg' parameter is like the one used with the 'shell' test.
+
+  sql:
+  path    = $SANDBOX_HOME/msb_5_1_30
+  query   = select version()
+  expected = 5.1.30
+  msg      = checking version
+
+All strings starting with a $ are expanded to their corresponding environment variables. 
+For example, if $SANDBOX_HOME is /home/sb/tests, the line 
+
+  command  = $SANDBOX_HOME/msb_5_1_30/stop
+
+will expand to:
+
+  command = /home/sb/tests/msb_5_1_30/stop
 
 =head1 REQUIREMENTS
 

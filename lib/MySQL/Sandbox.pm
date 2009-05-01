@@ -19,7 +19,7 @@ our @EXPORT_OK= qw( is_port_open
                     get_ranges
                     get_option_file_contents ) ;
 
-our $VERSION="2.0.99b";
+our $VERSION="2.0.99c";
 our $DEBUG;
 
 BEGIN {
@@ -581,6 +581,11 @@ some handy scripts to manage your server easily and in isolation.
 =item stop
 
 "./start", "./restart", and "./stop" do what their name suggests.
+C<start> and C<restart> accept parameters that are eventually passed to the server. e.g.:
+
+  ./start --skip-innodb
+
+  ./restart --event-scheduler=disabled
 
 =item use
 
@@ -595,11 +600,15 @@ some handy scripts to manage your server easily and in isolation.
 On a replication sandbox, you have the same commands, with a "_all"
 suffix, meaning that you propagate the command to all the members.
 Then you have "./m" as a shortcut to use the master, "./s1" and "./s2"
-to access the slaves (and "s3", "s4" ... if you define more)
+to access the slaves (and "s3", "s4" ... if you define more).
+
+In group sandboxes without a master slave relationship (circular replication and multiple sandboxes) the nodes can be accessed by ./n1, ./n2, ./n3, and so on.
 
 =over 3
 
 =item start_all
+
+=item restart_all
 
 =item stop_all
 
@@ -640,6 +649,76 @@ figure, to avoid clashing with single installations.
  +--------+-----------------------------+
  |  3310  | /tmp/mysql_sandbox3310.sock |
  +--------+-----------------------------+
+
+=head2 Searching for free ports
+
+MySQL Sandbox uses a fairly reasonable system of default ports that 
+guarantees the usage of unused ports most of the times. 
+If you are creating many sandbozes, however, especially if you want
+several sandboxes using the same versions, collisions may happen.
+In these cases, you may ask for a port check before installing, thus 
+making sure that your sandbox is really not conflicting with anything.
+
+=head3 Single sandbox port checking
+
+The default behavior when asking to install a sandbox over an existing 
+one is to abort. If you specify the C<--force> option, the old sandbox
+will be overwritten.
+Instead, using the C<--check_port> option, MySQL Sandbox searches for the
+first available unused port, and uses it. It will also create a non 
+conflicting data directory. For example
+
+ make_sandbox 5.0.79
+ # creates a sandbox with port 5079 under $SANDBOX_HOME/msb_5_0_79
+
+A further call to the same command will be aborted unless you specify 
+either C<--force> or C<--check_port>.
+
+ make_sandbox 5.0.79 --force
+ # Creates a sandbox with port 5079 under $SANDBOX_HOME/msb_5_0_79
+ # The contents of the previous data directory are removed.
+
+ make_sandbox 5.0.79 --check_port
+ # Creates a sandbox with port 5080 under $SANDBOX_HOME/msb_5_0_79_a
+
+ make_sandbox 5.0.79 --check_port
+ # Creates a sandbox with port 5081 under $SANDBOX_HOME/msb_5_0_79_b
+
+=head3 Multiple sandbox port checking
+
+When you create a multiple sandbox (make_replication_sandbox, 
+make_multiple_sandbox, make_multiple_custom_sandbox) the default behavior
+is to overwrite the existing sandbox without asking for confirmation. 
+The rationale is that a multiple sandbox is definitely more likely to be a 
+created only for testing purposes, and overwriting it should not be a problem.
+If you want to avoid overwriting, you can specify a different group name
+(C<--replication_directory> C<--group_directory>), but this will use the
+same base port number, unless you specify C<--check_base_port>.
+
+ make_replication_sandbox 5.0.79
+ # Creates a replication directory under $SANDBOX_HOME/rsandbox_5_0_79
+ # The default base_port is 7000
+
+ make_replication_sandbox 5.0.79
+ # Creates a replication directory under $SANDBOX_HOME/rsandbox_5_0_79
+ # overwriting the previous one. The default base port is still 7000
+
+ # WRONG
+ make_replication_sandbox --check_base_port 5.0.79
+ # Creates a replication directory under $SANDBOX_HOME/rsandbox_5_0_79
+ # overwriting the previous one. 
+ 
+ # WRONG
+ make_replication_sandbox --replication_directory=newdir 5.0.79
+ # Created a replication directory under $SANDBOX_HOME/newdir.
+ # The previous one is preserved, but the new sandbox does not start
+ # because of port conflict.
+
+ # RIGHT
+ make_replication_sandbox --replication_directory=newwdir \
+    --check_base_port 5.0.79
+ # Creates a replication directory under $SANDBOX_HOME/newdir
+ # The previous one is preserved. No conflicts happen
 
 =head2 Environment variables
 

@@ -10,12 +10,13 @@ our @ISA = qw/Exporter/;
 our @EXPORT_OK = qw( scripts_in_code);
 our @EXPORT = @EXPORT_OK;
 
-our $VERSION="3.0.05";
+our $VERSION="3.0.06";
 
 our @MANIFEST = (
 'clear.sh',
 'my.sandbox.cnf',
 'start.sh',
+'status.sh',
 'restart.sh',
 'stop.sh',
 'send_kill.sh',
@@ -122,6 +123,15 @@ my %parse_options_low_level_make_sandbox = (
                                             'Base directory for MySQL (default: /usr/local/mysql)'
                                          ]
                             },
+   tmpdir                => {
+                                value => undef, 
+                                parse => 'tmpdir=s' ,               
+                                so    =>  65,
+                                help  => [
+                                            'Temporary directory for MySQL (default: Sandbox_directory/tmp)'
+                                         ]
+                            },
+
     my_file               => {
                                 value => q{},                 
                                 parse => 'm|my_file=s',                
@@ -186,7 +196,7 @@ my %parse_options_low_level_make_sandbox = (
                             },
 
     prompt_body          => {
-                                value => q/ [\h] {\u} (\d) > '/,      
+                                value => q/ [\h] {\u} (\d) > /,      
                                 parse => 'prompt_body=s', 
                                 so    => 135,
                                 help  => [
@@ -747,6 +757,24 @@ else
 fi
 
 START_SCRIPT
+
+    'status.sh' => <<'STATUS_SCRIPT',
+#!_BINBASH_
+__LICENSE__
+SBDIR="_HOME_DIR_/_SANDBOXDIR_"
+PIDFILE="$SBDIR/data/mysql_sandbox_SERVERPORT_.pid"
+
+if [ -f $PIDFILE ]
+then
+    echo "_SANDBOXDIR_ on"
+    exit 0
+else
+    echo "_SANDBOXDIR_ off"
+    exit 1
+fi
+
+STATUS_SCRIPT
+
 'restart.sh' => <<'RESTART_SCRIPT',
 #!_BINBASH_
 __LICENSE__
@@ -898,6 +926,7 @@ port                            = _SERVERPORT_
 socket                          = /tmp/mysql_sandbox_SERVERPORT_.sock
 basedir                         = _BASEDIR_
 datadir                         = _HOME_DIR_/_SANDBOXDIR_/data
+tmpdir                          = _TMPDIR_
 pid-file                        = _HOME_DIR_/_SANDBOXDIR_/data/mysql_sandbox_SERVERPORT_.pid
 #log-slow-queries               = _HOME_DIR_/_SANDBOXDIR_/data/msandbox-slow.log
 #log                            = _HOME_DIR_/_SANDBOXDIR_/data/msandbox.log
@@ -1025,7 +1054,7 @@ PERL_SCRIPT2='s/sandbox$old/sandbox$new/g;'
 PERL_SCRIPT3='s/\b$old\b/$new/' 
 PERL_SCRIPT="$PERL_SCRIPT1 $PERL_SCRIPT2 $PERL_SCRIPT3"
 
-SCRIPTS1="start stop send_kill clear restart my.sandbox.cnf "
+SCRIPTS1="start stop send_kill clear status restart my.sandbox.cnf "
 SCRIPTS2="load_grants my use $0"
 SCRIPTS="$SCRIPTS1 $SCRIPTS2"
 for SCRIPT in $SCRIPTS
@@ -1070,7 +1099,7 @@ PERL_SCRIPT1='BEGIN{$old=shift;$new=shift};'
 PERL_SCRIPT2='s/$old/$new/g' 
 PERL_SCRIPT="$PERL_SCRIPT1 $PERL_SCRIPT2"
 
-SCRIPTS1="start stop send_kill clear restart my.sandbox.cnf "
+SCRIPTS1="start stop send_kill clear status restart my.sandbox.cnf "
 SCRIPTS2="load_grants my use $0"
 SCRIPTS="$SCRIPTS1 $SCRIPTS2"
 
@@ -1081,7 +1110,7 @@ done
 echo "($PWD) The old scripts have been saved as filename.path.bak"
 CHANGE_PATHS_SCRIPT
     'sandbox_action.pl' => <<'SANDBOX_ACTION_SCRIPT',
-#!/usr/bin/perl
+#!_BINPERL_
 __LICENSE__
 use strict;
 use warnings;
@@ -1089,7 +1118,7 @@ use MySQL::Sandbox;
 
 my $DEBUG = $MySQL::Sandbox::DEBUG;
 
-my $action_list = 'use|start|stop|clear|restart|send_kill';
+my $action_list = 'use|start|stop|status|clear|restart|send_kill';
 my $action = shift
     or die "action required {$action_list}\n";
 $action =~/^($action_list)$/ 
@@ -1135,7 +1164,7 @@ SANDBOX_ACTION_SCRIPT
 
 my $license_text = <<'LICENSE';
 #    The MySQL Sandbox
-#    Copyright (C) 2006,2007,2008,2009 Giuseppe Maxia
+#    Copyright (C) 2006-2010 Giuseppe Maxia
 #    Contacts: http://datacharmer.org
 #
 #    This program is free software; you can redistribute it and/or modify
@@ -1197,7 +1226,7 @@ For a reference manual, see L<MySQL::Sandbox>. For a cookbook, see L<MySQL::Sand
 
 Version 3.0
 
-Copyright (C) 2006,2007,2008,2009  Giuseppe Maxia
+Copyright (C) 2006-2010 Giuseppe Maxia
 
 Home Page  http://launchpad.net/mysql-sandbox/
 

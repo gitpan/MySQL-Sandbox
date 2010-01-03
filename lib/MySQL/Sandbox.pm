@@ -22,7 +22,7 @@ our @EXPORT_OK= qw( is_port_open
                     use_env
                     get_option_file_contents ) ;
 
-our $VERSION="3.0.05";
+our $VERSION="3.0.06";
 our $DEBUG;
 
 BEGIN {
@@ -36,7 +36,8 @@ BEGIN {
     }
 }
 
-my @supported_versions = qw( 3.23 4.0 4.1 5.0 5.1 5.2 5.3 5.4 5.5 6.0);
+my @supported_versions = qw( 3.23 4.0 4.1 5.0 5.1 5.2 5.3 5.4 
+    5.5 5.6 5.7 5.8 6.0);
 
 our $sandbox_options_file    = "my.sandbox.cnf";
 # our $sandbox_current_options = "current_options.conf";
@@ -138,7 +139,7 @@ sub credits {
     my ($self) = @_;
     my $CREDITS = 
           qq(    The MySQL Sandbox,  version $VERSION\n) 
-        . qq(    (C) 2006,2007,2008,2009 Giuseppe Maxia\n);
+        . qq(    (C) 2006-2010 Giuseppe Maxia\n);
     return $CREDITS;
 }
 
@@ -473,6 +474,8 @@ and PATH variables.
    make
    make test
    make install
+
+Notice that PERL5LIB could be different in different operating systems. If you opt for this installation method, you must adapt it to your operating system path and Perl version.
 
 See also under L</"TESTING"> for more options before running 'make test'
 
@@ -1213,7 +1216,7 @@ Bash shell
 
 Version 3.0
 
-Copyright (C) 2006,2007,2008,2009  Giuseppe Maxia
+Copyright (C) 2006-2010 Giuseppe Maxia
 
 Home Page  http://launchpad.net/mysql-sandbox/
 

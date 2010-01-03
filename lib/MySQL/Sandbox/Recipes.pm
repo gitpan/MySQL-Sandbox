@@ -1,6 +1,6 @@
 package MySQL::Sandbox::Recipes;
 
-our $VERSION="3.0.05";
+our $VERSION="3.0.06";
 
 1;
 __END__
@@ -634,7 +634,7 @@ To use a Perl test, name the test with a .sb.pl extension.
 
 Version 3.0
 
-Copyright (C) 2006,2007,2008,2009  Giuseppe Maxia
+Copyright (C) 2006-2010 Giuseppe Maxia
 
 Home Page  http://launchpad.net/mysql-sandbox/
 

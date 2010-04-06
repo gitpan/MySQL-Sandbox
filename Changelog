@@ -1,3 +1,21 @@
+3.0.09	25-Mar-2010
+	- added a check in the 'start' script to verify that mysqld_safe exists
+	  and does can run properly.
+	- Added an exit code to the 'start' script to alert when the server does
+	  not start
+	- added help to make_sandbox_from_installed. Added /usr/sbin as source
+	directory
+	- added instructions to the 'clear' script to remove functions and plugins 
+3.0.08	17-Feb-2010
+	- Fixed make_sandbox_from_source failure due to changes in modified 
+	  configure.in (Thanks to Padraig O'Sullivan for noticing)
+	- modified the "USING" file, which now includes the Sandbox version
+	- Changed default test version from 5.0.77 to 5.0.86
+3.0.07	08-Jan-2010
+	- Fixed bud in make_multiple_custom_sandbox. With some versions of bash,
+	  it broke on tests with "use_all"
+	- fixed bug on symlink access on some platforms.
+	- Fixed Bug#504789 export_binaries fails on some OS when crossing file systems
 3.0.06	03-Jan-2010
 	- Fixed bug in prompt definition. A stray quote was added at the start of
 	each user-defined prompt.

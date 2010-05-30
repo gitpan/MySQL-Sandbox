@@ -20,9 +20,10 @@ our @EXPORT_OK= qw( is_port_open
                     get_ports
                     get_ranges
                     use_env
+                    sbinstr
                     get_option_file_contents ) ;
 
-our $VERSION="3.0.09";
+our $VERSION="3.0.12";
 our $DEBUG;
 
 BEGIN {
@@ -33,6 +34,12 @@ BEGIN {
 
     if ( -d "$ENV{HOME}/sandboxes" ) {
         $ENV{SANDBOX_HOME} = $ENV{SANDBOX_HOME} || "$ENV{HOME}/sandboxes";
+    }
+
+    unless ( $ENV{SANDBOX_BINARY} ) {
+        if ( -d "$ENV{HOME}/opt/mysql") {
+            $ENV{SANDBOX_BINARY} = "$ENV{HOME}/opt/mysql";
+        }
     }
 }
 
@@ -48,6 +55,14 @@ our %default_base_port = (
     multiple    =>  7000,
     custom      =>  5000,
 ); 
+
+our $SBINSTR_SH_TEXT =<<'SBINSTR_SH_TEXT';
+if [ -f "$SBINSTR" ] 
+then
+    echo "[`basename $0`] - `date "+%Y-%m-%d %H:%M:%S"` - $@" >> $SBINSTR
+fi
+SBINSTR_SH_TEXT
+
 
 
 sub new {
@@ -126,11 +141,58 @@ sub get_help {
         # $HELP_MSG .= "\n";
    }
 
+   my $VAR_HELP = 
+    "\nVARIABLES affecting this program: \n"
+        . "\t\$SBDEBUG : DEBUG LEVEL (" 
+            . ($ENV{SBDEBUG} || 0) . ")\n"
+        . "\t\$SBVERBOSE : DEBUG LEVEL (same as \$SBDEBUG) (" 
+            . ($ENV{SBVERBOSE} || 0)  . ")\n"
+
+        . "\t\$SANDBOX_HOME : root of all sandbox installations (" 
+            . use_env($ENV{SANDBOX_HOME}) . ")\n"
+
+        . "\t\$SANDBOX_BINARY : where to search for binaries (" 
+            . use_env($ENV{SANDBOX_BINARY}) . ")\n"
+   ;
+
+    if ( $PROGRAM_NAME =~ /replication|multiple/ ) { 
+        $VAR_HELP .= 
+            "\t\$NODE_OPTIONS : options to pass to all node installations (" 
+            . ($ENV{NODE_OPTIONS} || '') . ")\n"
+    }
+
+    if ( $PROGRAM_NAME =~ /replication/ ) { 
+        $VAR_HELP .= 
+            "\t\$MASTER_OPTIONS : options to pass to the master installation (" 
+            . ($ENV{MASTER_OPTIONS} || '') . ")\n"
+
+           . "\t\$SLAVE_OPTIONS : options to pass to all slave installations (" 
+            . ($ENV{SLAVE_OPTIONS} || '' ) . ")\n"
+    }
+   my $target = '';
+   if ( grep {$PROGRAM_NAME =~ /$_/ } 
+          qw( make_sandbox make_replication_sandbox
+              make_multiple_sandbox make_multiple_sandbox ) )
+   {
+        $target = '{tarball|dir|version}';
+        $HELP_MSG =
+              "tarball = the full path to a MySQL binary tarball\n"
+            . "dir     = the path to an expanded MySQL binary tarball\n"
+            . "version = the simple version number of the expanded tarball\n"
+            . "          if it is under \$SANDBOX_BINARY and renamed as the\n "
+            . "          version number.\n\n"
+            . $HELP_MSG;
+   } 
+    
    print $self->credits(),
-          "syntax: $PROGRAM_NAME [options] \n", 
-          $HELP_MSG, 
-        "\nExample:\n",
-        "     $PROGRAM_NAME --my_file=large --sandbox_directory=my_sandbox\n\n";
+          "syntax: $PROGRAM_NAME [options] $target \n", 
+          $HELP_MSG,
+          $VAR_HELP; 
+          # This example is only relevant for a single sandbox, but it is
+          # wrong for a multiple sandbox.
+          #, 
+          #"\nExample:\n",
+          #"     $PROGRAM_NAME --my_file=large --sandbox_directory=my_sandbox\n\n";
 
     exit(1);
 }
@@ -159,6 +221,9 @@ sub write_to {
     open my $FILE, $mode, $fname
         or die "can't open file $fname\n";
     print $FILE $contents, "\n";
+    if (($mode eq '>') && ( $contents =~ m/\#!\/bin\/sh/ ) ) {
+        print $FILE $SBINSTR_SH_TEXT;    
+    }
     close $FILE;
 }
 
@@ -415,6 +480,7 @@ sub use_env{
             'HOME', 
             'SANDBOX_HOME',
     );
+    return '' unless $path;
     for my $var (@vars) {
         if ($path =~ /^$ENV{$var}/) {
             $path =~ s/$ENV{$var}/\$$var/;
@@ -424,7 +490,26 @@ sub use_env{
     return $path;
 }
 
-
+sub sbinstr {
+    my ($msg) = @_;
+    unless ($ENV{SBINSTR}) {
+        return;
+    }
+    my $pname = $PROGRAM_NAME;
+    unless ($DEBUG) {
+        $pname =~ s{.*/}{};
+    }
+    open my $FH, '>>', $ENV{SBINSTR}
+        or die "can't write to $ENV{SBINSTR} ($!)\n";
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime();
+    $mon++;
+    $year +=1900;
+    print $FH "[$pname] - ", 
+        sprintf('%4d-%02d%02d %02d:%02d:%02d', 
+                $year, $mon, $mday, $hour, $min, $sec), 
+        " - $msg \n";
+    close $FH;
+} 
 
 1;
 __END__
@@ -919,6 +1004,7 @@ not available at creation time or that would require too much manual labor.
          'delete'   removes a sandbox completely
          'preserve' makes a sandbox permanent
          'unpreserve' makes a sandbox NOT permanent
+         'plugin'   installs a given plugin
     -s     --source_dir      (s) <> - source directory for move,copy
     -d     --dest_dir        (s) <> - destination directory for move,copy
     -n     --new_port        (s) <> - new port while moving a sandbox
@@ -935,6 +1021,8 @@ not available at creation time or that would require too much manual labor.
            --mid_nodes       (s) <> - description of the middle nodes (x x x)
            --leaf_nodes      (s) <> - description of the leaf nodes (x x|x x x|x x)
            --tree_dir        (s) <> - which directory contains the tree nodes
+           --plugin          (s) <> - which plugin needs to be installed
+           --plugin_file     (s) <> - which plugin template file should be used
     -v     --verbose         (-) <> - prints more info on some operations
     -h     --help            (-) <1> - this screen
 
@@ -1045,6 +1133,37 @@ It requires the C<--source_dir> option to complete the task.
 The requested sandbox will be stopped and then deleted completely. 
 WARNING! No confirmation is asked!
 
+=head3 sbtool -o plugin
+
+Installs a given plugin into a sandbox.
+It requires the C<--source_dir> and C<--plugin> options to complete the task.
+The plugin indicated must be defined in the plugin template file, which is by default installed in C<$SANDBOX_HOME>. 
+Optionally, you can indicate a different plugin template with the C<--plugin_file> option.
+By default, sbtool looks for the plugin template file in the sandbox directory that is the target of the installation. If it is not found there, it will look at C<$SANDBOX_HOME> before giving up with an error.
+
+=head4 Plugin template
+
+The Plugin template is a Perl script containing the definition of the templates you want to install.
+Each plugin must have at least one target B<Server type>, which could be one of I<all_servers>, I<master>, or I<slave>. It is allowed to have more than one target types in the same plugin. 
+
+Each server type, in turn, must have at least one section named B<operation_sequence>, an array reference containing the list of the actions to perform. Such actions can be regular scripts in each sandbox (start, stop, restart, clear) or one of the following template sections:
+
+=over 3
+
+=item options_file 
+
+It is the list of lines to add to an options file, under the C<[mysqld]> label.
+
+=item sql_commands 
+
+It is a list of queries to execute. Every query must have appropriate semicolons as required. If no semicolon are found in the list, no queries are executed.
+
+=item startup_file
+
+It is a file, named I<startup.sql>, to be created under the data directory. It will contain the lines indicated in this section.
+You must remember to add a line 'init-file=startup.sql' to the options_file section.
+
+=back
 
 =head1 TESTING
 

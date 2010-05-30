@@ -10,7 +10,7 @@ our @ISA = qw/Exporter/;
 our @EXPORT_OK = qw( scripts_in_code);
 our @EXPORT = @EXPORT_OK;
 
-our $VERSION="3.0.09";
+our $VERSION="3.0.12";
 
 our @MANIFEST = (
 'clear.sh',
@@ -31,6 +31,17 @@ our @MANIFEST = (
 '# INSTALL FILES',
 'sandbox_action.pl',
 );
+
+#my $SBINSTR_SH_TEXT =<<'SBINSTR_SH_TEXT';
+#if [ -f "$SBINSTR" ] 
+#then
+#    echo "[`basename $0`] - `date "+%Y-%m-%d %H:%M:%S"` - $@" >> $SBINSTR
+#fi
+#SBINSTR_SH_TEXT
+
+#sub sbinstr_sh_text {
+#    return $MySQL::Sandbox::SBINSTR_SH_TEXT;
+#}
 
 sub manifest {
     return @MANIFEST;
@@ -589,6 +600,7 @@ our %sbtool_supported_operations = (
     delete => 'removes a sandbox completely',
     preserve => 'makes a sandbox permanent',
     unpreserve => 'makes a sandbox NOT permanent',
+    plugin => 'adds plugin support to a sandbox (innodb,semisynch)',
 );
 
 our %sbtool_supported_formats = (
@@ -596,6 +608,11 @@ our %sbtool_supported_formats = (
     perl => 'fully structured information in Perl code',
 );
 
+#our %sbtool_supported_plugins = (
+#    innodb => 'innodb plugin (5.1)',
+#    semisync => 'semi synchrounus replication (5.5)',
+#    gearman => 'Gearman UDF',
+#);
 
 my %parse_options_sbtool = (
     operation => {
@@ -702,6 +719,18 @@ my %parse_options_sbtool = (
         value => 0,
         help  => 'prints more info on some operations'
     },
+    plugin => {
+        so       => 170,
+        parse    => 'plugin=s',
+        value    => undef,
+        help     => 'install given plugin in sandbox',
+    },
+    plugin_file => {
+        so       => 180,
+        parse    => 'plugin_file=s',
+        value    => undef,
+        help     => 'plugin configuration file to use instead of default plugin.conf',
+    },
     help => {
         so    => 999,
         parse => 'h|help',
@@ -722,6 +751,7 @@ export DYLD_LIBRARY_PATH=$BASEDIR_/lib:$BASEDIR/lib/mysql:$DYLD_LIBRARY_PATH
 MYSQLD_SAFE="$BASEDIR/bin/_MYSQLDSAFE_"
 SBDIR="_HOME_DIR_/_SANDBOXDIR_"
 PIDFILE="$SBDIR/data/mysql_sandbox_SERVERPORT_.pid"
+__SBINSTR_SH__
 if [ ! -f $MYSQLD_SAFE ]
 then
     echo "mysqld_safe not found in $BASEDIR/bin/"
@@ -781,6 +811,7 @@ START_SCRIPT
 __LICENSE__
 SBDIR="_HOME_DIR_/_SANDBOXDIR_"
 PIDFILE="$SBDIR/data/mysql_sandbox_SERVERPORT_.pid"
+__SBINSTR_SH__
 
 if [ -f $PIDFILE ]
 then
@@ -797,6 +828,7 @@ STATUS_SCRIPT
 #!_BINBASH_
 __LICENSE__
 
+__SBINSTR_SH__
 SBDIR="_HOME_DIR_/_SANDBOXDIR_"
 $SBDIR/stop
 $SBDIR/start $@
@@ -811,6 +843,7 @@ export LD_LIBRARY_PATH=$BASEDIR/lib:$BASEDIR/lib/mysql:$LD_LIBRARY_PATH
 export DYLD_LIBRARY_PATH=$BASEDIR/lib:$BASEDIR/lib/mysql:$DYLD_LIBRARY_PATH
 MYSQL_ADMIN="$BASEDIR/bin/mysqladmin"
 PIDFILE="$SBDIR/data/mysql_sandbox_SERVERPORT_.pid"
+__SBINSTR_SH__
 
 if [ -f $PIDFILE ]
 then
@@ -818,8 +851,8 @@ then
     then
         echo "stop slave" | $SBDIR/use -u root
     fi
-    # echo "$MYSQL_ADMIN --defaults-file=$SBDIR/my.sandbox.cnf shutdown"
-    $MYSQL_ADMIN --defaults-file=$SBDIR/my.sandbox.cnf shutdown
+    # echo "$MYSQL_ADMIN --defaults-file=$SBDIR/my.sandbox.cnf $MYCLIENT_OPTIONS shutdown"
+    $MYSQL_ADMIN --defaults-file=$SBDIR/my.sandbox.cnf $MYCLIENT_OPTIONS shutdown
     sleep 1
 fi
 if [ -f $PIDFILE ]
@@ -835,6 +868,7 @@ __LICENSE__
 SBDIR="_HOME_DIR_/_SANDBOXDIR_"
 PIDFILE="$SBDIR/data/mysql_sandbox_SERVERPORT_.pid"
 TIMEOUT=30
+__SBINSTR_SH__
 if [ -f $PIDFILE ]
 then
     MYPID=`cat $PIDFILE`
@@ -871,6 +905,7 @@ BASEDIR=_BASEDIR_
 MYSQL="$BASEDIR/bin/mysql"
 export MYSQL_HISTFILE="$SBDIR/.mysql_history"
 PIDFILE="$SBDIR/data/mysql_sandbox_SERVERPORT_.pid"
+__SBINSTR_SH__
 if [ -f $PIDFILE ]
 then
     $MYSQL --defaults-file=$SBDIR/my.sandbox.cnf $MYCLIENT_OPTIONS "$@"
@@ -885,16 +920,17 @@ __LICENSE__
 SBDIR="_HOME_DIR_/_SANDBOXDIR_"
 cd $SBDIR
 PIDFILE="$SBDIR/data/mysql_sandbox_SERVERPORT_.pid"
+__SBINSTR_SH__
 #
 # attempt to drop databases gracefully
 #
 if [ -f $PIDFILE ]
 then
-    for D in `echo "show databases " | ./use -B -N | grep -v "^mysql$" | grep -v "^information_schema$"` 
+    for D in `echo "show databases " | ./use -B -N | grep -v "^mysql$" | grep -iv "^information_schema$" | grep -iv "^performance_schema"` 
     do
-        echo 'drop database `'$D'`' | ./use 
+        echo "set sql_mode=ansi_quotes;drop database \"$D\"" | ./use 
     done
-    VERSION=`./use -N -B  -e 'select version()'`
+    VERSION=`./use -N -B  -e 'select left(version(),3)'`
     if [ `perl -le 'print $ARGV[0] ge "5.0" ? "1" : "0" ' "$VERSION"` = "1" ]
     then
         ./use -e "truncate mysql.proc"
@@ -902,12 +938,18 @@ then
     fi
     if [ `perl -le 'print $ARGV[0] ge "5.1" ? "1" : "0" ' "$VERSION"` = "1" ]
     then
-        ./use -e "truncate mysql.general_log"
-        ./use -e "truncate mysql.slow_log"
-        ./use -e "truncate mysql.plugin"
-        ./use -e "truncate mysql.proc"
-        ./use -e "truncate mysql.func"
+        for T in general_log slow_log plugin proc func
+        do
+            ./use -e "truncate mysql.$T"
+        done
     fi
+    #if [ `perl -le 'print $ARGV[0] ge "5.5" ? "1" : "0" ' "$VERSION"` = "1" ]
+    #then
+    #    for T in `./use -N -B -e 'show tables from performance_schema'`
+    #    do
+    #        ./use -e "truncate performance_schema.$T"
+    #    done
+    #fi
 fi
 
 ./stop
@@ -927,7 +969,7 @@ rm -f data/*.err-old
 #
 # remove all databases if any
 #
-for D in `ls -d data/*/ | grep -w -v mysql ` 
+for D in `ls -d data/*/ | grep -w -v mysql | grep -iv performance_schema` 
 do
     rm -rf $D
 done
@@ -993,6 +1035,7 @@ then
     echo "syntax my sql{dump|binlog|admin} arguments"
     exit
 fi
+__SBINSTR_SH__
 
 SBDIR=_HOME_DIR_/_SANDBOXDIR_
 BASEDIR=_BASEDIR_
@@ -1060,6 +1103,7 @@ PROXY_START_SCRIPT
 #!_BINBASH_
 __LICENSE__
 
+__SBINSTR_SH__
 OLD_PORT=_SERVERPORT_
 
 if [ "$1" = "" ]
@@ -1102,6 +1146,7 @@ else
     OLD_SB_LOCATION=$1
 fi
 
+__SBINSTR_SH__
 if [ "$2" = "" ]
 then
     NEW_SB_LOCATION=$PWD
@@ -1141,7 +1186,7 @@ CHANGE_PATHS_SCRIPT
 __LICENSE__
 use strict;
 use warnings;
-use MySQL::Sandbox;
+use MySQL::Sandbox qw(sbinstr);
 
 my $DEBUG = $MySQL::Sandbox::DEBUG;
 
@@ -1151,6 +1196,7 @@ my $action = shift
 $action =~/^($action_list)$/ 
     or die "action must be one of {$action_list}\n";
 my $sandboxdir = $0;
+sbinstr($action);
 $sandboxdir =~ s{[^/]+$}{};
 $sandboxdir =~ s{/$}{};
 my $command = $ARGV[0];
@@ -1184,6 +1230,116 @@ for my $dir (@dirs) {
 }
 
 SANDBOX_ACTION_SCRIPT
+    'plugin.conf' => <<'PLUGIN_CONF',
+#
+# Plugin configuration file
+# To use this template, see 
+# sbtool -o plugin 
+#
+$plugin_definition = 
+{
+innodb =>    {
+    minimum_version => '5.1.45',
+    all_servers => 
+        {
+        operation_sequence => [qw(stop options_file start sql_commands )],
+        options_file => 
+            [
+            'ignore_builtin_innodb',
+            'plugin-load='
+             .'innodb=ha_innodb_plugin.so;'
+             .'innodb_trx=ha_innodb_plugin.so;'
+             .'innodb_locks=ha_innodb_plugin.so;'
+             .'innodb_lock_waits=ha_innodb_plugin.so;'
+             .'innodb_cmp=ha_innodb_plugin.so;'
+             .'innodb_cmp_reset=ha_innodb_plugin.so;'
+             .'innodb_cmpmem=ha_innodb_plugin.so;'
+             .'innodb_cmpmem_reset=ha_innodb_plugin.so',
+            'default-storage-engine=InnoDB',
+            'innodb_file_per_table=1',
+            'innodb_file_format=barracuda',
+            'innodb_strict_mode=1',
+            ],
+        sql_commands => 
+            [
+                'select @@innodb_version;',
+            ],
+        startup_file => [ ],
+        },
+    },
+semisynch => {
+    minimum_version => '5.5.2',
+
+    master => 
+        {
+            operation_sequence => [qw(stop options_file start sql_commands )],
+            options_file => 
+                [
+                'plugin-load=rpl_semi_sync_master=semisync_master.so',
+                'rpl_semi_sync_master_enabled=1'
+                ],
+            sql_commands => 
+                [
+                    'select @@rpl_semi_sync_master_enabled;'
+                ],
+            startup_file => []
+        },
+    slave => 
+        {
+            operation_sequence => [qw(stop options_file start sql_commands )],
+            options_file => 
+                [
+                'plugin-load=rpl_semi_sync_slave=semisync_slave.so',
+                'rpl_semi_sync_slave_enabled=1'
+                ],
+            sql_commands => 
+                [
+                    'select @@rpl_semi_sync_slave_enabled;'
+                ],
+            startup_file => []
+        },
+    },
+gearman =>    {
+    minimum_version => '5.0',
+    all_servers => 
+        {
+        operation_sequence => [qw(start sql_commands options_file 
+                                startup_file restart )],
+        options_file => 
+            [
+            'init-file=startup.sql'
+            ],
+        sql_commands => 
+            [
+            'CREATE FUNCTION gman_do RETURNS STRING
+                SONAME "libgearman_mysql_udf.so";',
+            'CREATE FUNCTION gman_do_high RETURNS STRING
+                SONAME "libgearman_mysql_udf.so";',
+            'CREATE FUNCTION gman_do_low RETURNS STRING
+                SONAME "libgearman_mysql_udf.so";',
+            'CREATE FUNCTION gman_do_background RETURNS STRING
+                SONAME "libgearman_mysql_udf.so";',
+            'CREATE FUNCTION gman_do_high_background RETURNS STRING
+                SONAME "libgearman_mysql_udf.so";',
+            'CREATE FUNCTION gman_do_low_background RETURNS STRING
+                SONAME "libgearman_mysql_udf.so";',
+            'CREATE AGGREGATE FUNCTION gman_sum RETURNS INTEGER
+                SONAME "libgearman_mysql_udf.so";',
+            'CREATE FUNCTION gman_servers_set RETURNS STRING
+                SONAME "libgearman_mysql_udf.so";',                
+            ],
+        startup_file => 
+            [ 
+            'set @a := (select gman_servers_set("127.0.0.1"));',
+            'use test ;',
+            'create table if not exists startup (msg text, ts timestamp);',
+            'insert into startup (msg) values (@a);',
+            ]
+        },
+    },
+};
+
+PLUGIN_CONF
 
 );
 

@@ -23,11 +23,15 @@ our @EXPORT_OK= qw( is_port_open
                     sbinstr
                     get_option_file_contents ) ;
 
-our $VERSION="3.0.12";
+our $VERSION="3.0.15";
 our $DEBUG;
 
 BEGIN {
     $DEBUG = $ENV{'SBDEBUG'} || $ENV{'SBVERBOSE'} || 0;
+    unless ($ENV{HOME}) {
+        die "This module is not meant for an operating system\n"
+            . "that does not recognize \$HOME\n";
+    }
     unless ( $ENV{SANDBOX_HOME} ) { 
         $ENV{SANDBOX_HOME} = "$ENV{HOME}/sandboxes";
     }
@@ -780,6 +784,8 @@ There are 2 database users installed by default:
  +-----------------+-------------+-------------------------------+
  |  root@localhost | msandbox    | all on *.* with grant option  |
  |  msandbox@%     | msandbox    | all on *.*                    |
+ |  rsandbox@127.% | rsandbox    | REPLICATION SLAVE             |
+ |                 |             | (only replication sandboxes)  |
  +-----------------+-------------+-------------------------------+
 
 =head2 Ports and sockets

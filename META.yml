@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               MySQL-Sandbox
-version:            3.0.17
+version:            3.0.19
 abstract:           Quickly installs MySQL side server, either standalone or in groups
 author:
     - Giuseppe Maxia <gmax@cpan.org>

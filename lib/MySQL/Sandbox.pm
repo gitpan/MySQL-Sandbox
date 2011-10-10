@@ -23,7 +23,7 @@ our @EXPORT_OK= qw( is_port_open
                     sbinstr
                     get_option_file_contents ) ;
 
-our $VERSION="3.0.19";
+our $VERSION="3.0.20";
 our $DEBUG;
 
 BEGIN {
@@ -1245,7 +1245,7 @@ be satisfied with a ZERO exit code reported by the operating system.
 The 'msg' is the description of the test that is shown to you when the test runs.
 
   shell:
-  command  = make_sandbox 5.1.30 --no_confirm
+  command  = make_sandbox 5.1.30 -- --no_confirm
   expected = sandbox server started
   msg      = sandbox creation
 

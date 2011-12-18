@@ -10,7 +10,7 @@ our @ISA = qw/Exporter/;
 our @EXPORT_OK = qw( scripts_in_code);
 our @EXPORT = @EXPORT_OK;
 
-our $VERSION="3.0.21";
+our $VERSION="3.0.24";
 
 our @MANIFEST = (
 'clear.sh',
@@ -246,6 +246,33 @@ my %parse_options_low_level_make_sandbox = (
                                             'it may be used several times',
                                          ]
                             },
+    master            => {
+                                value => 0,      
+                                parse => 'master', 
+                                so    => 124,
+                                help  => [
+                                            'configures the server as a master (enables binlog and sets server ID)'
+                                         ]
+                            },
+    slaveof           => {
+                                value => undef,      
+                                parse => 'slaveof=s', 
+                                so    => 125,
+                                help  => [
+                                            'Configures the server as a slave of another sandbox ',
+                                            'Requires options for CHANGE MASTER TO, (at least master_port).',
+                                            'If options other than master_port are provided, they will override the defaults',
+                                            'and it will be possible to set a slave for a non-sandbox server'
+                                         ]
+                            },
+      high_performance      => {
+                                value => 0,      
+                                parse => 'high_performance', 
+                                so    => 126,
+                                help  => [
+                                            'configures the server for high performance'
+                                         ]
+                            },
     prompt_prefix           => {
                                 value => 'mysql',      
                                 parse => 'prompt_prefix=s', 
@@ -412,7 +439,7 @@ my %parse_options_replication = (
     topology               => {
                                 value => 'standard',                  
                                 parse => 't|topology=s',                  
-                                so    => 55,
+                                so    => 60,
                                 help  => [
                                             'Sets a replication topology.',
                                             'Available: {standard|circular} (default: standard)'
@@ -421,7 +448,7 @@ my %parse_options_replication = (
     circular               => {
                                 value => 0,
                                 parse => 'circular=i',                  
-                                so    => 56,
+                                so    => 70,
                                 help  => [
                                             'Sets circular replication with N nodes.',
                                             '(default: 0)'
@@ -432,7 +459,7 @@ my %parse_options_replication = (
     master_master        => {
                                 value => 0,                  
                                 parse => 'master_master',                  
-                                so    => 57,
+                                so    => 80,
                                 help  => [
                                             'set exactly two nodes in circular replication'
                                          ] 
@@ -441,7 +468,7 @@ my %parse_options_replication = (
     repl_user           => {
                                 value => $MySQL::Sandbox::default_users{'repl_user'},
                                 parse => 'repl_user=s',                  
-                                so    => 60,
+                                so    => 90,
                                 help  => [
                                             'user with replication slave privileges.',
                                             '(default: '. $MySQL::Sandbox::default_users{'repl_user'} . ')'
@@ -451,7 +478,7 @@ my %parse_options_replication = (
     repl_password           => {
                                 value => $MySQL::Sandbox::default_users{'repl_password'},
                                 parse => 'repl_password=s',                  
-                                so    => 60,
+                                so    => 100,
                                 help  => [
                                             'password for user with replication slave privileges.',
                                             '(default: '. $MySQL::Sandbox::default_users{'repl_password'} . ')'
@@ -460,17 +487,50 @@ my %parse_options_replication = (
      remote_access        => {
                                 value => $MySQL::Sandbox::default_users{'remote_access'},
                                 parse => 'remote_access=s'  ,              
-                                so    => 61,
+                                so    => 110,
                                 help  => [
                                             'network access for mysql users (Default: '
                                             .  $MySQL::Sandbox::default_users{'remote_access'} . ')'
                                          ]
                             },
- 
+     master_options       => {
+                                value => '',
+                                parse => 'master_options=s'  ,              
+                                so    => 120,
+                                help  => [
+                                            'Options passed to the master (Default: "" )'
+                                         ]
+                            },
+     slave_options        => {
+                                value => '',
+                                parse => 'slave_options=s'  ,              
+                                so    => 120,
+                                help  => [
+                                            'Options passed to each slave (Default: "" )'
+                                         ]
+                            },
+     node_options        => {
+                                value => '',
+                                parse => 'node_options=s'  ,              
+                                so    => 130,
+                                help  => [
+                                            'Options passed to each node (Default: "" )'
+                                         ]
+                            },
+     one_slave_options      => {
+                                value => '',
+                                parse => 'one_slave_options=s@'  ,              
+                                so    => 130,
+                                help  => [
+                                            'Options passed to a specific slave with the format "N:options"',
+                                            '(Default: "" )'
+                                         ]
+                            },
+  
     interactive           => {
                                 value => 0,                  
                                 parse => 'interactive',                  
-                                so    => 65,
+                                so    => 210,
                                 help  => [
                                             'Use this option to ask interactive user ',
                                             'confirmation for each node (default: disabled)'
@@ -479,7 +539,7 @@ my %parse_options_replication = (
     verbose               => {
                                 value => 0,                  
                                 parse => 'v|verbose',                  
-                                so    => 60,
+                                so    => 220,
                                 help  => [
                                             'Use this option to see installation progress (default: disabled)'
                                          ] 
@@ -487,7 +547,7 @@ my %parse_options_replication = (
     help               => {
                                 value => 0,                  
                                 parse => 'help',                  
-                                so    => 70,
+                                so    => 230,
                                 help  => [
                                             'show this help (default: disabled)'
                                          ] 
@@ -552,7 +612,7 @@ my %parse_options_many = (
     master_master        => {
                                 value => 0,                  
                                 parse => 'master_master',                  
-                                so    => 65,
+                                so    => 60,
                                 help  => [
                                             'set exactly two nodes in circular replication'
                                          ] 
@@ -561,7 +621,7 @@ my %parse_options_many = (
     circular             => {
                                 value => 0,                  
                                 parse => 'circular',                  
-                                so    => 60,
+                                so    => 70,
                                 help  => [
                                             'set the nodes in circular replication'
                                          ] 
@@ -570,7 +630,7 @@ my %parse_options_many = (
     repl_user           => {
                                 value => $MySQL::Sandbox::default_users{'repl_user'},
                                 parse => 'repl_user=s',                  
-                                so    => 60,
+                                so    => 80,
                                 help  => [
                                             'user with replication slave privileges.',
                                             '(default: '. $MySQL::Sandbox::default_users{'repl_user'} . ')'
@@ -580,7 +640,7 @@ my %parse_options_many = (
     repl_password           => {
                                 value => $MySQL::Sandbox::default_users{'repl_password'},
                                 parse => 'repl_password=s',                  
-                                so    => 60,
+                                so    => 90,
                                 help  => [
                                             'password for user with replication slave privileges.',
                                             '(default: '. $MySQL::Sandbox::default_users{'repl_password'} . ')'
@@ -589,17 +649,36 @@ my %parse_options_many = (
      remote_access        => {
                                 value => $MySQL::Sandbox::default_users{'remote_access'},
                                 parse => 'remote_access=s'  ,              
-                                so    => 61,
+                                so    => 100,
                                 help  => [
                                             'network access for mysql users (Default: '
                                             .  $MySQL::Sandbox::default_users{'remote_access'} . ')'
                                          ]
                             },
  
+     node_options        => {
+                                value => '',
+                                parse => 'node_options=s'  ,              
+                                so    => 130,
+                                help  => [
+                                            'Options passed to each node (Default: "" )'
+                                         ]
+                            },
+ 
+    one_node_options      => {
+                                value => '',
+                                parse => 'one_node_options=s@'  ,              
+                                so    => 140,
+                                help  => [
+                                            'Options passed to a specific node with the format "N:options"',
+                                            '(Default: "" )'
+                                         ]
+                            },
+
     interactive           => {
                                 value => 0,                  
                                 parse => 'interactive',                  
-                                so    => 65,
+                                so    => 210,
                                 help  => [
                                             'Use this option to ask interactive user ',
                                             'confirmation for each node (default: disabled)'
@@ -608,7 +687,7 @@ my %parse_options_many = (
     verbose               => {
                                 value => 0,                  
                                 parse => 'v|verbose',                  
-                                so    => 70,
+                                so    => 220,
                                 help  => [
                                             'Use this option to see installation progress (default: disabled)'
                                          ] 
@@ -617,7 +696,7 @@ my %parse_options_many = (
     help               => {
                                 value => 0,                  
                                 parse => 'help',                  
-                                so    => 80,
+                                so    => 230,
                                 help  => [
                                             'show this help (default: disabled)'
                                          ] 
@@ -668,11 +747,31 @@ my %parse_options_custom_many = (
                                             '(Default: disabled )',
                                          ]
                             },
+     node_options        => {
+                                value => '',
+                                parse => 'node_options=s'  ,              
+                                so    => 130,
+                                help  => [
+                                            'Options passed to each node (Default: "" )'
+                                         ]
+                            },
+ 
+    one_node_options      => {
+                                value => '',
+                                parse => 'one_node_options=s@'  ,              
+                                so    => 140,
+                                help  => [
+                                            'Options passed to a specific node with the format "N:options"',
+                                            '(Default: "" )'
+                                         ]
+                            },
+
+
 
     interactive           => {
                                 value => 0,                  
                                 parse => 'interactive',                  
-                                so    => 65,
+                                so    => 210,
                                 help  => [
                                             'Use this option to ask interactive user ',
                                             'confirmation for each node (default: disabled)'
@@ -681,7 +780,7 @@ my %parse_options_custom_many = (
     verbose               => {
                                 value => 0,                  
                                 parse => 'v|verbose',                  
-                                so    => 60,
+                                so    => 220,
                                 help  => [
                                             'Use this option to see installation progress (default: disabled)'
                                          ] 
@@ -689,7 +788,7 @@ my %parse_options_custom_many = (
     help               => {
                                 value => 0,                  
                                 parse => 'help',                  
-                                so    => 70,
+                                so    => 230,
                                 help  => [
                                             'show this help (default: disabled)'
                                          ] 

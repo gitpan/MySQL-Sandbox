@@ -50,3 +50,4 @@ t/innodb_plugin_install.sb.pl
 t/semi_synch_plugin_install.sb.pl
 t/16_replication_options.t
 t/replication_options.sb.pl
+META.json                                Module JSON meta-data (added by MakeMaker)

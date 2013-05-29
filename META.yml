@@ -20,4 +20,4 @@ no_index:
 requires:
   File::Find: 1
   Socket: 1.7
-version: v3.0.38
+version: v3.0.39
